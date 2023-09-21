@@ -4,10 +4,14 @@ from pyudev import Context, Monitor, MonitorObserver
 
 def on_device_event(device):
     """Callback function to be called when a device is added."""
-    if device.action == 'add' and device.get('ID_FS_TYPE') == 'vfat':
+    if device.action == 'add':
         dev_path = device.get('DEVNAME')
-        print(f"USB Device Added: {dev_path}")
-        scan_device(dev_path)
+        fs_type = device.get('ID_FS_TYPE')
+        print(f"Device Added: {dev_path}, FS Type: {fs_type}")
+        
+        if fs_type == 'vfat':
+            print(f"USB Device Added: {dev_path}")
+            scan_device(dev_path)
 
 def scan_device(dev_path):
     """Function to scan the device using ClamAV"""
