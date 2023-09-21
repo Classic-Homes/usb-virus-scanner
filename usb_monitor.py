@@ -18,14 +18,15 @@ def scan_device(dev_path):
     if os.geteuid() != 0:
         print("You need to have root privileges to run the scan.")
         return
+    
+    # Prepare the command
+    command = f'x-terminal-emulator -e "clamscan -r --remove {dev_path}; echo Scan Completed! Press Enter to close.; read"'
 
-    command = f"clamscan -r --remove {dev_path}"
-    print(f"Running: {command}")
-
-    result = subprocess.run(command, shell=True, capture_output=True, text=True)
-    print(result.stdout)
-    if result.returncode != 0:
-        print("Error occurred while scanning.")
+    try:
+        print(f"Running: {command}")
+        subprocess.run(command, shell=True, check=True)
+    except subprocess.CalledProcessError as e:
+        print(f"Error occurred while scanning: {str(e)}")
 
 def main():
     """Main function to setup device monitor"""
