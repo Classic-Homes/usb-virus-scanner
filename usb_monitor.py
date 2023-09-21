@@ -1,17 +1,31 @@
 import os
+import time
 import subprocess
 from pyudev import Context, Monitor, MonitorObserver
 
 def on_device_event(device):
     """Callback function to be called when a device is added."""
-    if device.action == 'add':
+    if device.action == 'add' and device.get('ID_FS_TYPE') in ['vfat', 'ntfs', 'exfat', 'ext4']:
         dev_path = device.get('DEVNAME')
         fs_type = device.get('ID_FS_TYPE')
         print(f"Device Added: {dev_path}, FS Type: {fs_type}")
         
-        if fs_type == 'vfat':
-            print(f"USB Device Added: {dev_path}")
-            scan_device(dev_path)
+        # Wait for the device to be mounted.
+        time.sleep(2)
+        
+        # Find the mount point.
+        mount_point = None
+        result = subprocess.run(['df', '--output=target', dev_path], capture_output=True, text=True)
+        if result.returncode == 0:
+            lines = result.stdout.strip().split('\n')
+            if len(lines) > 1:
+                mount_point = lines[1]  # The second line contains the mount point.
+        
+        if mount_point:
+            print(f"USB Device Added: {dev_path} at {mount_point}")
+            scan_device(mount_point)
+        else:
+            print(f"Could not find the mount point for {dev_path}. Skipping scan.")
 
 def scan_device(dev_path):
     """Function to scan the device using ClamAV"""
