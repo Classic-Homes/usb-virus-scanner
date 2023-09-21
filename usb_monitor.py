@@ -20,7 +20,7 @@ def scan_device(dev_path):
         return
     
     # Prepare the command
-    command = f'x-terminal-emulator -e "clamscan -r --remove {dev_path}; echo Scan Completed! Press Enter to close.; read"'
+    command = f'gnome-terminal -e "clamscan -r --remove {dev_path}; echo Scan Completed! Press Enter to close.; read"'
 
     try:
         print(f"Running: {command}")
