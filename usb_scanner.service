@@ -1,0 +1,11 @@
+[Unit]
+Description=USB Scanner Service
+
+[Service]
+ExecStart=/path/to/your/script.py
+User=administrator
+Environment=DISPLAY=:0
+Restart=on-failure
+
+[Install]
+WantedBy=default.target

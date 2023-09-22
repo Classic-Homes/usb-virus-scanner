@@ -34,12 +34,11 @@ def scan_device(dev_path):
         return
     
     # Prepare the command
-    command = f'gnome-terminal -- "clamscan -r --remove {dev_path}; echo Scan Completed! Press Enter to close.; read"'
-
+    command = f'gnome-terminal --command "bash -c \'clamscan -r --remove {dev_path}; echo Scan Completed! Press Enter to close.; read\'"'
     try:
         print(f"Running: {command}")
         subprocess.run(command, shell=True, check=True)
-    except subprocess.CalledProcessError as e:
+    except Exception as e:  # Catching all exceptions for better debugging
         print(f"Error occurred while scanning: {str(e)}")
 
 def main():
