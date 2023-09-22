@@ -7,7 +7,6 @@ Simple python script to scan a usb drive when it is connected to a linux environ
 - Requirements
 - Installation
 - Troubleshooting
-- Deploying Service
 - Use
 
 ## Requirements
@@ -37,13 +36,6 @@ Add the following to the end of the file:
 
 This script assumes you are using an account called 'administrator' with sudo permissions. This script is not intended to be used on a daily driver machine or workstation, but rather a testing environment that is capable of being wiped and rebuilt in the event of an uncontained infection.
 
-## Deploying Service
-
-1. Copy the service file: Copy 'usb_scanner.service' to the '/etc/systemd/system/' directory.
-2. Reload systemd: Run `sudo systemctl daemon-reload` to make systemd aware of your new service.
-3. Enable the Service: Run `sudo systemctl enable usb_scanner.service` to enable the service to start at boot.
-4. Start the Service: Run `sudo systemctl start usb_scanner.service` to start the service immediately.
-
 ## Use
 
-Simply plug in a USB drive and a terminal will launch and scan the drive. A report is generated at the end of the scan.
+Launch the script, plug in a USB drive and a terminal will launch and scan the drive. A report is generated at the end of the scan.
