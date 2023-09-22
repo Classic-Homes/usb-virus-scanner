@@ -2,7 +2,7 @@
 Description=USB Scanner Service
 
 [Service]
-ExecStart=/path/to/your/script.py
+ExecStart=/home/administrator/usb-virus-scanner/script.py
 User=administrator
 Environment=DISPLAY=:0
 Restart=on-failure
