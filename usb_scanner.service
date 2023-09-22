@@ -5,7 +5,7 @@ Description=USB Scanner Service
 ExecStart=/home/administrator/usb-virus-scanner/usb_scanner.py
 User=administrator
 Environment=DISPLAY=:0
-Environment=XAUTHORITY=/home/<YourUsername>/.Xauthority
+Environment=XAUTHORITY=/home/administrator/.Xauthority
 Restart=on-failure
 
 [Install]
