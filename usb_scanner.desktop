@@ -1,0 +1,6 @@
+[Desktop Entry]
+Name=USB Scanner
+Version=v1.0.0
+Exec=python3 /home/administrator/usb-virus-scanner/usb_scanner.py
+Terminal=true
+Type=Application

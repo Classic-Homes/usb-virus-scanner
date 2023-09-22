@@ -39,3 +39,5 @@ This script assumes you are using an account called 'administrator' with sudo pe
 ## Use
 
 Launch the script, plug in a USB drive and a terminal will launch and scan the drive. A report is generated at the end of the scan.
+
+Copy the 'usb_scanner.desktop' application to the desktop to create a shortcut.
