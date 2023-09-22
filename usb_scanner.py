@@ -37,11 +37,9 @@ def on_device_event(device):
 
 def scan_device(dev_path):
     """Function to scan the device using ClamAV"""
-    if os.geteuid() != 0:
-        print("You need to have root privileges to run the scan.")
-        return
 
     command = ['sudo', 'clamscan', '-r', '--remove', dev_path]
+    
     log_file_name = 'clamscan_log.txt'
     log_file_path = os.path.join(dev_path, log_file_name)
     backup_log_file_path = os.path.join(
