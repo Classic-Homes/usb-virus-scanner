@@ -83,7 +83,7 @@ def scan_device(dev_path):
             except Exception as e:
                 print(f"Failed to write backup log to {backup_log_file_path}, Error: {str(e)}")
 
-        print("Press Enter to close.")
+        print("This terminal can now be closed.")
         input()  # Wait for the user to press Enter
     except Exception as e:
         stop_event.set()
