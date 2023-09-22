@@ -2,9 +2,21 @@
 
 import os
 import os.path
+import threading
 import time
+import sys
 import subprocess
 from pyudev import Context, Monitor, MonitorObserver
+
+def loading_indicator(event):
+    """Displays a loading indicator."""
+    sys.stdout.write("Scanning")
+    sys.stdout.flush()
+    while not event.is_set():
+        sys.stdout.write('.')
+        sys.stdout.flush()
+        time.sleep(1)
+    print()  # Move to the new line at the end
 
 
 def on_device_event(device):
@@ -39,15 +51,18 @@ def scan_device(dev_path):
     """Function to scan the device using ClamAV"""
 
     command = ['sudo', 'clamscan', '-r', '--remove', dev_path]
-    
     log_file_name = 'clamscan_log.txt'
     log_file_path = os.path.join(dev_path, log_file_name)
-    backup_log_file_path = os.path.join(
-        os.path.expanduser('~'), 'Desktop', log_file_name)
+    backup_log_file_path = os.path.join(os.path.expanduser('~'), 'Desktop', log_file_name)
 
+    stop_event = threading.Event()
+    loading_thread = threading.Thread(target=loading_indicator, args=(stop_event,))
+    loading_thread.start()
+    
     try:
-        print(f"Running: {' '.join(command)}")
         result = subprocess.run(command, capture_output=True, text=True)
+        stop_event.set()
+        loading_thread.join()
 
         # Output the result to the terminal
         print(result.stdout)
@@ -66,12 +81,13 @@ def scan_device(dev_path):
                     backup_log_file.write(result.stdout)
                 print(f"Backup log saved to {backup_log_file_path}.")
             except Exception as e:
-                print(
-                    f"Failed to write backup log to {backup_log_file_path}, Error: {str(e)}")
+                print(f"Failed to write backup log to {backup_log_file_path}, Error: {str(e)}")
 
         print("Press Enter to close.")
         input()  # Wait for the user to press Enter
     except Exception as e:
+        stop_event.set()
+        loading_thread.join()
         print(f"Error occurred while scanning: {str(e)}")
 
 
