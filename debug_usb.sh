@@ -490,6 +490,30 @@ except Exception as e:
     print_info "Status check returned non-zero (normal if not running)"
   fi
 
+  # Test launcher script if it exists
+  echo ""
+  echo "   Testing launcher script:"
+  if [[ -f "$SCRIPT_DIR/usb_launcher.sh" ]]; then
+    print_status "Launcher script exists"
+    if [[ -x "$SCRIPT_DIR/usb_launcher.sh" ]]; then
+      print_status "Launcher script is executable"
+
+      # Test launcher execution
+      print_info "Testing launcher execution..."
+      timeout 10s "$SCRIPT_DIR/usb_launcher.sh" || print_info "Launcher test completed"
+
+      # Check launcher log
+      if [[ -f "/tmp/usb-launcher.log" ]]; then
+        print_info "Launcher log entries:"
+        tail -3 /tmp/usb-launcher.log | sed 's/^/     /'
+      fi
+    else
+      print_warning "Launcher script not executable"
+    fi
+  else
+    print_warning "Launcher script missing (may cause GUI auto-launch issues)"
+  fi
+
   echo ""
 }
 
@@ -650,16 +674,21 @@ show_recommendations() {
   echo "   python3 $SCANNER_SCRIPT --status      # Check if running"
   echo "   ./usb-scanner-manager.sh status       # Management script"
   echo ""
-  echo "3. USB testing:"
+  echo "3. Test launcher (SSH GUI fix):"
+  echo "   ./usb_launcher.sh                     # Test launcher directly"
+  echo "   tail -f /tmp/usb-launcher.log         # Monitor launcher logs"
+  echo ""
+  echo "4. USB testing:"
   echo "   udevadm monitor --subsystem-match=block    # Monitor USB events"
   echo "   lsblk -f                                  # Show current devices"
   echo ""
-  echo "4. Log analysis:"
+  echo "5. Log analysis:"
   echo "   tail -f /var/log/usb_scanner.log         # Application logs"
   echo "   tail -f /tmp/usb-events.log              # USB event logs"
+  echo "   tail -f /tmp/usb-launcher.log            # Launcher logs"
   echo "   journalctl -u clamav-freshclam -f        # ClamAV logs"
   echo ""
-  echo "5. Complete reinstallation:"
+  echo "6. Complete reinstallation:"
   echo "   ./remove.sh                              # Clean removal"
   echo "   ./setup.sh                               # Fresh install"
   echo ""

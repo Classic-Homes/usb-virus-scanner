@@ -34,16 +34,6 @@ stop_processes() {
     fi
   fi
 
-  # Kill any running monitor processes
-  if pgrep -f "usb_monitor.sh" >/dev/null; then
-    echo "   Stopping usb_monitor.sh processes..."
-    pkill -f "usb_monitor.sh" || true
-    sleep 1
-    if pgrep -f "usb_monitor.sh" >/dev/null; then
-      pkill -9 -f "usb_monitor.sh" || true
-    fi
-  fi
-
   # Kill any running launcher processes
   if pgrep -f "launch_scanner.sh" >/dev/null; then
     echo "   Stopping launch_scanner.sh processes..."
@@ -135,9 +125,6 @@ safe_remove "$HOME/usb-virus-scanner/diagnose_service.sh"
 safe_remove "$HOME/usb-virus-scanner/debug_usb.sh"
 safe_remove "$HOME/usb-virus-scanner/fix_udev.sh"
 safe_remove "$HOME/usb-virus-scanner/setup.sh.backup"
-
-# Remove old monitor scripts
-safe_remove "$HOME/usb-virus-scanner/usb_monitor.sh.backup"
 
 echo ""
 echo "🧹 Checking for any remaining processes..."
