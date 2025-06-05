@@ -76,12 +76,28 @@ echo ""
 echo "4. 🔌 Creating udev rule..."
 cat >/tmp/usb-scanner.rules <<EOF
 # USB Scanner - Auto-launch on USB insertion
-ACTION=="add", SUBSYSTEM=="block", ENV{ID_FS_TYPE}=="vfat|ntfs|exfat|ext4|ext3", ENV{ID_BUS}=="usb", ENV{DEVTYPE}=="partition", \\
-    RUN+="/bin/bash -c '/usr/bin/systemd-run --uid=$USER --gid=$USER --setenv=DISPLAY=:0 --setenv=XAUTHORITY=$HOME/.Xauthority --setenv=HOME=$HOME /usr/bin/python3 $SCRIPT_PATH &'"
+# Log all USB block device events first
+ACTION=="add", SUBSYSTEM=="block", ENV{ID_BUS}=="usb", \\
+    RUN+="/bin/bash -c 'echo \$(date): ADD \$env{DEVNAME} \$env{ID_FS_TYPE} >> /tmp/usb-events.log'"
 
-# Log USB events for debugging
-ACTION=="add|remove", SUBSYSTEM=="block", ENV{ID_BUS}=="usb", \\
-    RUN+="/bin/bash -c 'echo \$(date): \$env{ACTION} \$env{DEVNAME} \$env{ID_FS_TYPE} >> /tmp/usb-events.log'"
+ACTION=="remove", SUBSYSTEM=="block", ENV{ID_BUS}=="usb", \\
+    RUN+="/bin/bash -c 'echo \$(date): REMOVE \$env{DEVNAME} >> /tmp/usb-events.log'"
+
+# Launch scanner for USB partitions with specific filesystems
+ACTION=="add", SUBSYSTEM=="block", ENV{ID_BUS}=="usb", ENV{DEVTYPE}=="partition", ENV{ID_FS_TYPE}=="vfat", \\
+    RUN+="/bin/bash -c '/usr/bin/systemd-run --uid=$USER --gid=$USER --setenv=DISPLAY=:0 --setenv=XAUTHORITY=$HOME/.Xauthority --setenv=HOME=$HOME /usr/bin/python3 $SCRIPT_PATH --minimize'"
+
+ACTION=="add", SUBSYSTEM=="block", ENV{ID_BUS}=="usb", ENV{DEVTYPE}=="partition", ENV{ID_FS_TYPE}=="ntfs", \\
+    RUN+="/bin/bash -c '/usr/bin/systemd-run --uid=$USER --gid=$USER --setenv=DISPLAY=:0 --setenv=XAUTHORITY=$HOME/.Xauthority --setenv=HOME=$HOME /usr/bin/python3 $SCRIPT_PATH --minimize'"
+
+ACTION=="add", SUBSYSTEM=="block", ENV{ID_BUS}=="usb", ENV{DEVTYPE}=="partition", ENV{ID_FS_TYPE}=="exfat", \\
+    RUN+="/bin/bash -c '/usr/bin/systemd-run --uid=$USER --gid=$USER --setenv=DISPLAY=:0 --setenv=XAUTHORITY=$HOME/.Xauthority --setenv=HOME=$HOME /usr/bin/python3 $SCRIPT_PATH --minimize'"
+
+ACTION=="add", SUBSYSTEM=="block", ENV{ID_BUS}=="usb", ENV{DEVTYPE}=="partition", ENV{ID_FS_TYPE}=="ext4", \\
+    RUN+="/bin/bash -c '/usr/bin/systemd-run --uid=$USER --gid=$USER --setenv=DISPLAY=:0 --setenv=XAUTHORITY=$HOME/.Xauthority --setenv=HOME=$HOME /usr/bin/python3 $SCRIPT_PATH --minimize'"
+
+ACTION=="add", SUBSYSTEM=="block", ENV{ID_BUS}=="usb", ENV{DEVTYPE}=="partition", ENV{ID_FS_TYPE}=="ext3", \\
+    RUN+="/bin/bash -c '/usr/bin/systemd-run --uid=$USER --gid=$USER --setenv=DISPLAY=:0 --setenv=XAUTHORITY=$HOME/.Xauthority --setenv=HOME=$HOME /usr/bin/python3 $SCRIPT_PATH --minimize'"
 EOF
 
 sudo cp /tmp/usb-scanner.rules /etc/udev/rules.d/99-usb-scanner.rules
@@ -105,7 +121,7 @@ else
   print_warning "Using user log directory: $LOG_DIR"
 fi
 
-# Create event log files
+# Create event log files with proper permissions
 touch /tmp/usb-events.log
 chmod 666 /tmp/usb-events.log
 echo ""
