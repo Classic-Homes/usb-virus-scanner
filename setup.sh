@@ -149,12 +149,6 @@ install_system_packages() {
     echo ""
 }
 
-user psutil
-    fi
-    
-    echo ""
-}
-
 # Configure ClamAV
 setup_clamav() {
     echo "🛡️ Configuring ClamAV..."
