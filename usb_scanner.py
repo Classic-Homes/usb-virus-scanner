@@ -13,9 +13,15 @@ import subprocess
 import logging
 import json
 import signal
-import psutil
 from datetime import datetime
 from pathlib import Path
+
+try:
+    import psutil
+    PSUTIL_AVAILABLE = True
+except ImportError:
+    PSUTIL_AVAILABLE = False
+    print("Warning: psutil not available. Some features may be limited.")
 
 try:
     from pyudev import Context, Monitor, MonitorObserver
@@ -910,11 +916,21 @@ def main():
     if args.status:
         # Show status of running scanner
         pids = []
-        for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
+        if PSUTIL_AVAILABLE:
+            for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
+                try:
+                    if 'usb_scanner.py' in ' '.join(proc.info['cmdline'] or []):
+                        pids.append(proc.info['pid'])
+                except (psutil.NoSuchProcess, psutil.AccessDenied):
+                    pass
+        else:
+            # Fallback method using pgrep
             try:
-                if 'usb_scanner.py' in ' '.join(proc.info['cmdline'] or []):
-                    pids.append(proc.info['pid'])
-            except (psutil.NoSuchProcess, psutil.AccessDenied):
+                result = subprocess.run(['pgrep', '-f', 'usb_scanner.py'], 
+                                      capture_output=True, text=True)
+                if result.returncode == 0:
+                    pids = result.stdout.strip().split('\n')
+            except Exception:
                 pass
         
         if pids:
