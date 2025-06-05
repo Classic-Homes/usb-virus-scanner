@@ -47,11 +47,9 @@ detect_environment() {
     
     # Check if in SSH session
     if [[ -n "$SSH_CONNECTION" ]] || [[ -n "$SSH_CLIENT" ]] || [[ "$TERM" == "screen"* ]]; then
-        echo "SSH_MODE=true"
         export SSH_MODE=true
         print_info "SSH session detected - configuring for remote installation"
     else
-        echo "SSH_MODE=false"
         export SSH_MODE=false
         print_info "Local session detected"
     fi
@@ -65,7 +63,7 @@ detect_environment() {
         print_warning "No X11 display available"
     fi
     
-    # Check user for desktop integration
+    # Check target user for desktop integration
     if [[ -n "$SUDO_USER" ]]; then
         export TARGET_USER="$SUDO_USER"
         export TARGET_HOME="/home/$SUDO_USER"
