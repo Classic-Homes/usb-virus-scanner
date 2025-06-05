@@ -17,7 +17,7 @@ sudo apt update
 
 # Install required system packages
 echo "Installing system dependencies..."
-sudo apt install -y python3 python3-pip python3-pyudev python3-tk clamav clamav-daemon freshclam dbus-x11
+sudo apt install -y python3 python3-pip python3-pyudev python3-tk clamav clamav-daemon clamav-freshclam dbus-x11
 
 # Install Python packages
 echo "Installing Python dependencies..."
