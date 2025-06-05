@@ -1,9 +1,0 @@
-[Desktop Entry]
-Name=Enhanced USB Scanner
-Comment=Automated USB virus scanning with modern GUI
-Version=2.0.0
-Exec=python3 /home/administrator/usb-virus-scanner/usb_scanner.py
-Icon=security-high
-Terminal=false
-Type=Application
-Categories=Security;System;
