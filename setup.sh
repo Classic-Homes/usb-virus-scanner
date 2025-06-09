@@ -277,8 +277,98 @@ case "${1:-}" in
             echo "Launcher script missing"
         fi
         ;;
+    quarantine)
+        QUARANTINE_DIR="$HOME/.local/share/usb-scanner/quarantine"
+        case "${2:-}" in
+            list)
+                echo "Quarantined files:"
+                if [[ -d "$QUARANTINE_DIR" ]]; then
+                    find "$QUARANTINE_DIR" -name "*.quarantine" | while read -r file; do
+                        meta="${file}.metadata"
+                        if [[ -f "$meta" ]]; then
+                            detection=$(grep -o '"detection": "[^"]*"' "$meta" | cut -d'"' -f4)
+                            original=$(grep -o '"original_path": "[^"]*"' "$meta" | cut -d'"' -f4)
+                            echo "[$detection] $original ($(basename "$file"))"
+                        else
+                            echo "$(basename "$file") (no metadata)"
+                        fi
+                    done
+                else
+                    echo "No quarantine directory found"
+                fi
+                ;;
+            restore)
+                if [[ -z "$3" ]]; then
+                    echo "Usage: $0 quarantine restore <quarantine_filename>"
+                    exit 1
+                fi
+                
+                file="$QUARANTINE_DIR/$3"
+                if [[ ! -f "$file" ]]; then
+                    echo "File not found: $3"
+                    exit 1
+                fi
+                
+                if [[ -f "${file}.metadata" ]]; then
+                    original_path=$(grep -o '"original_path": "[^"]*"' "${file}.metadata" | cut -d'"' -f4)
+                    if [[ -n "$original_path" ]]; then
+                        # Check if original path exists
+                        original_dir=$(dirname "$original_path")
+                        if [[ ! -d "$original_dir" ]]; then
+                            echo "Original directory no longer exists. Will restore to Desktop."
+                            original_path="$HOME/Desktop/$(basename "$original_path")"
+                        fi
+                    else
+                        echo "Could not determine original path. Will restore to Desktop."
+                        original_path="$HOME/Desktop/$(basename "$file" .quarantine)"
+                    fi
+                    
+                    # Confirm restoration
+                    echo "WARNING: This file was detected as malware!"
+                    read -p "Are you sure you want to restore it to $original_path? [y/N]: " -n 1 -r
+                    echo
+                    if [[ $REPLY =~ ^[Yy]$ ]]; then
+                        cp "$file" "$original_path" && echo "Restored to $original_path"
+                    fi
+                else
+                    echo "No metadata found for $3"
+                fi
+                ;;
+            delete)
+                if [[ -z "$3" ]]; then
+                    echo "Usage: $0 quarantine delete <quarantine_filename or 'all'>"
+                    exit 1
+                fi
+                
+                if [[ "$3" == "all" ]]; then
+                    read -p "Are you sure you want to delete ALL quarantined files? [y/N]: " -n 1 -r
+                    echo
+                    if [[ $REPLY =~ ^[Yy]$ ]]; then
+                        rm -rf "$QUARANTINE_DIR/"*.quarantine "$QUARANTINE_DIR/"*.metadata 2>/dev/null
+                        echo "All quarantined files deleted"
+                    fi
+                else
+                    file="$QUARANTINE_DIR/$3"
+                    if [[ ! -f "$file" ]]; then
+                        echo "File not found: $3"
+                        exit 1
+                    fi
+                    
+                    rm -f "$file" "${file}.metadata" 2>/dev/null
+                    echo "Deleted: $3"
+                fi
+                ;;
+            *)
+                echo "Quarantine management:"
+                echo "  $0 quarantine list           - List quarantined files"
+                echo "  $0 quarantine restore <file> - Restore a file from quarantine"
+                echo "  $0 quarantine delete <file>  - Delete a file from quarantine"
+                echo "  $0 quarantine delete all     - Delete all quarantined files"
+                ;;
+        esac
+        ;;
     *)
-        echo "Usage: $0 {start|stop|restart|status|gui|logs|test}"
+        echo "Usage: $0 {start|stop|restart|status|gui|logs|test|quarantine}"
         ;;
 esac
 EOF
@@ -337,6 +427,11 @@ echo "  Check status:    ./manage.sh status"
 echo "  View logs:       ./manage.sh logs"
 echo "  Quick test:      ./manage.sh test"
 echo "  Monitor events:  tail -f /tmp/usb-events.log"
+echo ""
+echo "🔒 Quarantine Management:"
+echo "  List files:      ./manage.sh quarantine list"
+echo "  Restore file:    ./manage.sh quarantine restore <filename>"
+echo "  Delete file:     ./manage.sh quarantine delete <filename>"
 echo ""
 echo "🔄 Autostart:"
 echo "  The scanner will start automatically at boot and when USB drives are inserted"

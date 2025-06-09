@@ -413,23 +413,68 @@ class USBScanner:
                 self.gui.update_status("Scanning...", '#e67e22')
                 self.gui.start_progress()
             
-            # Scan command
+            # Create quarantine directory if it doesn't exist
+            quarantine_dir = os.path.join(os.path.expanduser('~'), '.local', 'share', 'usb-scanner', 'quarantine')
+            os.makedirs(quarantine_dir, exist_ok=True)
+            
+            # Scan without removing files first
             command = [
-                'sudo', 'clamscan', '-r', '--remove', '--infected',
+                'sudo', 'clamscan', '-r', '--infected',
                 '--suppress-ok-results', mount_point
             ]
             
-            process = subprocess.Popen(command, stdout=subprocess.PIPE, 
-                                     stderr=subprocess.PIPE, text=True)
+            # Run the scan and capture output
+            result = subprocess.run(command, capture_output=True, text=True)
             
             infected_files = []
-            for line in process.stdout:
+            quarantined_files = []
+            
+            # Process scan results
+            for line in result.stdout.splitlines():
                 line = line.strip()
                 if 'FOUND' in line:
-                    infected_files.append(line)
-                    self.log(f"🦠 THREAT: {line}", 'ERROR')
+                    # Extract file path from ClamAV output (format: "/path/to/file: Malware.Type FOUND")
+                    try:
+                        file_path = line.split(': ')[0].strip()
+                        malware_type = line.split(': ')[1].strip()
+                        infected_files.append(line)
+                        self.log(f"🦠 THREAT: {line}", 'ERROR')
+                        
+                        # Quarantine the file
+                        if os.path.exists(file_path):
+                            # Create a unique filename for the quarantined file
+                            file_basename = os.path.basename(file_path)
+                            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                            quarantine_filename = f"{timestamp}_{file_basename}.quarantine"
+                            quarantine_path = os.path.join(quarantine_dir, quarantine_filename)
+                            
+                            # Copy the file to quarantine
+                            try:
+                                # Save file metadata
+                                metadata = {
+                                    "original_path": file_path,
+                                    "detection": malware_type,
+                                    "quarantine_time": timestamp,
+                                    "device_info": device_info
+                                }
+                                
+                                # Copy the file and store metadata
+                                import shutil
+                                shutil.copy2(file_path, quarantine_path)
+                                with open(f"{quarantine_path}.metadata", 'w') as mf:
+                                    json.dump(metadata, mf, indent=2)
+                                
+                                # Remove original file after successful quarantine
+                                os.remove(file_path)
+                                
+                                quarantined_files.append(quarantine_path)
+                                self.log(f"✓ Quarantined: {file_path} → {quarantine_path}", 'INFO')
+                            except Exception as e:
+                                self.log(f"⚠️ Quarantine failed: {str(e)}", 'ERROR')
+                    except Exception as e:
+                        self.log(f"⚠️ Error processing threat: {str(e)}", 'ERROR')
             
-            return_code = process.wait()
+            return_code = 1 if infected_files else 0
             duration = datetime.now() - start_time
             
             if self.gui:
@@ -441,9 +486,9 @@ class USBScanner:
                 if self.gui:
                     self.gui.update_status("Clean", '#27ae60')
             elif return_code == 1:
-                self.log(f"⚠️ {len(infected_files)} threats removed", 'WARNING')
+                self.log(f"⚠️ {len(infected_files)} threats quarantined", 'WARNING')
                 if self.gui:
-                    self.gui.update_status(f"Threats removed: {len(infected_files)}", '#e74c3c')
+                    self.gui.update_status(f"Threats quarantined: {len(infected_files)}", '#f39c12')
             else:
                 self.log(f"⚠️ Scan warnings (code: {return_code})", 'WARNING')
                 if self.gui:
@@ -471,6 +516,9 @@ class USBScanner:
     
     def _save_report(self, mount_point, device_info, exit_code, start_time, duration, infected_files):
         """Save scan report"""
+        # Get quarantine location for the report
+        quarantine_dir = os.path.join(os.path.expanduser('~'), '.local', 'share', 'usb-scanner', 'quarantine')
+        
         report = {
             'timestamp': start_time.isoformat(),
             'device': device_info,
@@ -478,7 +526,9 @@ class USBScanner:
             'duration': str(duration),
             'exit_code': exit_code,
             'threats_found': len(infected_files),
-            'infected_files': infected_files
+            'infected_files': infected_files,
+            'quarantine_location': quarantine_dir,
+            'action_taken': 'quarantined' if infected_files else 'none'
         }
         
         timestamp_str = start_time.strftime('%Y%m%d_%H%M%S')
