@@ -58,7 +58,7 @@ echo ""
 echo "3. 🔐 Setting up sudo permissions..."
 cat >/tmp/usb-scanner-sudoers <<EOF
 # USB Scanner permissions
-$USER ALL=(ALL) NOPASSWD: /usr/bin/clamscan, /usr/bin/freshclam
+$USER ALL=(ALL) NOPASSWD: /usr/bin/clamscan, /usr/bin/freshclam, /usr/bin/udevadm
 EOF
 
 sudo cp /tmp/usb-scanner-sudoers /etc/sudoers.d/usb-scanner
@@ -84,29 +84,65 @@ ACTION=="remove", SUBSYSTEM=="block", ENV{ID_BUS}=="usb", \\
     RUN+="/bin/bash -c 'echo \$(date): REMOVE \$env{DEVNAME} >> /tmp/usb-events.log'"
 
 # Launch scanner for USB partitions with specific filesystems
+# Method 1: Use our launcher script (more reliable)
 ACTION=="add", SUBSYSTEM=="block", ENV{ID_BUS}=="usb", ENV{DEVTYPE}=="partition", ENV{ID_FS_TYPE}=="vfat", \\
-    RUN+="/bin/bash -c '/usr/bin/systemd-run --uid=$USER --gid=$USER --setenv=DISPLAY=:0 --setenv=XAUTHORITY=$HOME/.Xauthority --setenv=HOME=$HOME /usr/bin/python3 $SCRIPT_PATH --minimize'"
+    RUN+="/bin/su ${USER} -c '/usr/local/bin/usb-scanner-launcher %p %k'"
 
 ACTION=="add", SUBSYSTEM=="block", ENV{ID_BUS}=="usb", ENV{DEVTYPE}=="partition", ENV{ID_FS_TYPE}=="ntfs", \\
-    RUN+="/bin/bash -c '/usr/bin/systemd-run --uid=$USER --gid=$USER --setenv=DISPLAY=:0 --setenv=XAUTHORITY=$HOME/.Xauthority --setenv=HOME=$HOME /usr/bin/python3 $SCRIPT_PATH --minimize'"
+    RUN+="/bin/su ${USER} -c '/usr/local/bin/usb-scanner-launcher %p %k'"
 
 ACTION=="add", SUBSYSTEM=="block", ENV{ID_BUS}=="usb", ENV{DEVTYPE}=="partition", ENV{ID_FS_TYPE}=="exfat", \\
-    RUN+="/bin/bash -c '/usr/bin/systemd-run --uid=$USER --gid=$USER --setenv=DISPLAY=:0 --setenv=XAUTHORITY=$HOME/.Xauthority --setenv=HOME=$HOME /usr/bin/python3 $SCRIPT_PATH --minimize'"
+    RUN+="/bin/su ${USER} -c '/usr/local/bin/usb-scanner-launcher %p %k'"
 
 ACTION=="add", SUBSYSTEM=="block", ENV{ID_BUS}=="usb", ENV{DEVTYPE}=="partition", ENV{ID_FS_TYPE}=="ext4", \\
-    RUN+="/bin/bash -c '/usr/bin/systemd-run --uid=$USER --gid=$USER --setenv=DISPLAY=:0 --setenv=XAUTHORITY=$HOME/.Xauthority --setenv=HOME=$HOME /usr/bin/python3 $SCRIPT_PATH --minimize'"
+    RUN+="/bin/su ${USER} -c '/usr/local/bin/usb-scanner-launcher %p %k'"
 
 ACTION=="add", SUBSYSTEM=="block", ENV{ID_BUS}=="usb", ENV{DEVTYPE}=="partition", ENV{ID_FS_TYPE}=="ext3", \\
-    RUN+="/bin/bash -c '/usr/bin/systemd-run --uid=$USER --gid=$USER --setenv=DISPLAY=:0 --setenv=XAUTHORITY=$HOME/.Xauthority --setenv=HOME=$HOME /usr/bin/python3 $SCRIPT_PATH --minimize'"
+    RUN+="/bin/su ${USER} -c '/usr/local/bin/usb-scanner-launcher %p %k'"
+
+# Method 2: Alternative using systemd-run (backup method)
+# ACTION=="add", SUBSYSTEM=="block", ENV{ID_BUS}=="usb", ENV{DEVTYPE}=="partition", \\
+#    ENV{ID_FS_TYPE}=="vfat|ntfs|exfat|ext4|ext3", \\
+#    RUN+="/bin/bash -c '/usr/bin/systemd-run --user --unit=usb-scanner \\
+#    --setenv=DISPLAY=:0 --setenv=XAUTHORITY=${HOME}/.Xauthority \\
+#    /usr/bin/python3 ${SCRIPT_PATH} --minimize'"
 EOF
 
 sudo cp /tmp/usb-scanner.rules /etc/udev/rules.d/99-usb-scanner.rules
 sudo chmod 644 /etc/udev/rules.d/99-usb-scanner.rules
 rm -f /tmp/usb-scanner.rules
 
+# Make sure the rules take effect
+print_info "Reloading udev rules..."
 sudo udevadm control --reload-rules
+print_info "Triggering udev rules..."
 sudo udevadm trigger
-print_status "Udev rule created"
+print_info "Restarting udev service..."
+sudo systemctl restart udev.service 2>/dev/null || true
+
+# Create wrapper script for direct execution
+print_info "Creating udev wrapper script..."
+cat >/tmp/usb-scanner-launcher <<EOF
+#!/bin/bash
+# USB Scanner launcher for udev
+
+# Log the execution
+echo "\$(date): Launcher executed for \$1 \$2" >> /tmp/usb-events.log
+
+# Use at-command for better reliability (if available)
+if command -v at &>/dev/null; then
+  echo "DISPLAY=:0 XAUTHORITY=${HOME}/.Xauthority python3 ${SCRIPT_PATH} --minimize" | at now
+else
+  # Fallback to direct execution
+  DISPLAY=:0 XAUTHORITY=${HOME}/.Xauthority python3 ${SCRIPT_PATH} --minimize &
+fi
+EOF
+
+sudo cp /tmp/usb-scanner-launcher /usr/local/bin/usb-scanner-launcher
+sudo chmod 755 /usr/local/bin/usb-scanner-launcher
+sudo chown root:root /usr/local/bin/usb-scanner-launcher
+rm -f /tmp/usb-scanner-launcher
+print_status "Udev rule created and activated"
 echo ""
 
 echo "5. 📝 Setting up logging..."
@@ -126,21 +162,58 @@ touch /tmp/usb-events.log
 chmod 666 /tmp/usb-events.log
 echo ""
 
-echo "6. 🛠️ Creating management script..."
+echo "6. 🔄 Creating autostart service..."
+# Create systemd user service for autostart
+mkdir -p "$HOME/.config/systemd/user"
+cat >"$HOME/.config/systemd/user/usb-scanner.service" <<EOF
+[Unit]
+Description=USB Virus Scanner Monitor
+After=graphical-session.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 ${SCRIPT_PATH} --minimize
+Restart=on-failure
+RestartSec=5s
+
+[Install]
+WantedBy=default.target
+EOF
+
+# Enable the service
+systemctl --user daemon-reload 2>/dev/null || true
+systemctl --user enable usb-scanner.service 2>/dev/null || true
+systemctl --user start usb-scanner.service 2>/dev/null || true
+print_status "Autostart service created"
+echo ""
+
+echo "7. 🛠️ Creating management script..."
 cat >"$SCRIPT_DIR/manage.sh" <<'EOF'
 #!/bin/bash
 # USB Scanner Management
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCANNER="$SCRIPT_DIR/usb_scanner.py"
+SERVICE_NAME="usb-scanner.service"
 
 case "${1:-}" in
     start)
         echo "Starting scanner..."
-        python3 "$SCANNER" --minimize &
+        if systemctl --user is-active "$SERVICE_NAME" &>/dev/null; then
+            systemctl --user restart "$SERVICE_NAME"
+            echo "Service restarted"
+        else
+            if systemctl --user start "$SERVICE_NAME" 2>/dev/null; then
+                echo "Started via systemd"
+            else 
+                echo "Starting directly..."
+                python3 "$SCANNER" --minimize &
+            fi
+        fi
         ;;
     stop)
         echo "Stopping scanner..."
+        systemctl --user stop "$SERVICE_NAME" 2>/dev/null || true
         pkill -f "usb_scanner.py" || echo "Not running"
         ;;
     restart)
@@ -149,11 +222,27 @@ case "${1:-}" in
         $0 start
         ;;
     status)
-        if pgrep -f "usb_scanner.py" >/dev/null; then
-            echo "✓ Scanner running"
+        if systemctl --user is-active "$SERVICE_NAME" &>/dev/null; then
+            echo "✓ Scanner service running"
+            systemctl --user status "$SERVICE_NAME" | head -n 6
+        elif pgrep -f "usb_scanner.py" >/dev/null; then
+            echo "✓ Scanner running (manual start)"
             ps aux | grep usb_scanner.py | grep -v grep
         else
             echo "✗ Scanner not running"
+        fi
+        
+        # Check udev rule status
+        echo ""
+        if [[ -f "/etc/udev/rules.d/99-usb-scanner.rules" ]]; then
+            echo "✓ Udev rule installed"
+            if [[ -f "/usr/local/bin/usb-scanner-launcher" ]]; then
+                echo "✓ Launcher script installed"
+            else
+                echo "✗ Launcher script missing"
+            fi
+        else
+            echo "✗ Udev rule missing"
         fi
         ;;
     gui)
@@ -163,11 +252,33 @@ case "${1:-}" in
         if [[ -f "/var/log/usb_scanner.log" ]]; then
             tail -20 /var/log/usb_scanner.log
         else
-            echo "No logs found"
+            echo "System log not found, checking local log..."
+            LOG_LOCAL="$HOME/.local/share/usb-scanner/usb_scanner.log"
+            if [[ -f "$LOG_LOCAL" ]]; then
+                tail -20 "$LOG_LOCAL"
+            else
+                echo "No logs found"
+            fi
+        fi
+        echo ""
+        echo "USB Events log:"
+        if [[ -f "/tmp/usb-events.log" ]]; then
+            tail -10 /tmp/usb-events.log
+        else
+            echo "No USB events logged"
+        fi
+        ;;
+    test)
+        echo "Testing udev rule..."
+        if [[ -f "/usr/local/bin/usb-scanner-launcher" ]]; then
+            /usr/local/bin/usb-scanner-launcher "test" "test"
+            echo "Launcher triggered. Check if scanner window appears."
+        else
+            echo "Launcher script missing"
         fi
         ;;
     *)
-        echo "Usage: $0 {start|stop|restart|status|gui|logs}"
+        echo "Usage: $0 {start|stop|restart|status|gui|logs|test}"
         ;;
 esac
 EOF
@@ -176,7 +287,7 @@ chmod +x "$SCRIPT_DIR/manage.sh"
 print_status "Management script created"
 echo ""
 
-echo "7. ✅ Verifying installation..."
+echo "8. ✅ Verifying installation..."
 chmod +x "$SCRIPT_PATH"
 
 # Test dependencies
@@ -203,6 +314,13 @@ else
   exit 1
 fi
 
+# Verify udev launcher
+if [[ -f "/usr/local/bin/usb-scanner-launcher" ]]; then
+  print_status "Udev launcher OK"
+else
+  print_warning "Udev launcher not installed"
+fi
+
 echo ""
 echo "🎉 Installation Complete!"
 echo ""
@@ -217,7 +335,11 @@ echo ""
 echo "🧪 Testing:"
 echo "  Check status:    ./manage.sh status"
 echo "  View logs:       ./manage.sh logs"
+echo "  Quick test:      ./manage.sh test"
 echo "  Monitor events:  tail -f /tmp/usb-events.log"
+echo ""
+echo "🔄 Autostart:"
+echo "  The scanner will start automatically at boot and when USB drives are inserted"
 echo ""
 print_status "Insert a USB device to test automatic scanning!"
 echo ""
