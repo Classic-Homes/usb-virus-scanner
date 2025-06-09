@@ -1,12 +1,12 @@
 #!/bin/bash
-# Simplified USB Scanner Setup v2.1
+# Simplified USB Scanner Setup v2.1.1
 
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIPT_PATH="$SCRIPT_DIR/usb_scanner.py"
 
-echo "🔧 USB Scanner Setup v2.1"
+echo "🔧 USB Scanner Setup v2.1.1"
 echo ""
 
 # Colors
@@ -158,8 +158,15 @@ else
 fi
 
 # Create event log files with proper permissions
-touch /tmp/usb-events.log
-chmod 666 /tmp/usb-events.log
+print_info "Setting up USB events log..."
+if [[ -f "/tmp/usb-events.log" ]]; then
+  # File exists - handle with sudo to ensure we can modify it regardless of ownership
+  sudo rm -f /tmp/usb-events.log
+fi
+sudo touch /tmp/usb-events.log
+sudo chmod 666 /tmp/usb-events.log
+sudo chown root:root /tmp/usb-events.log
+print_status "USB events log configured"
 echo ""
 
 echo "6. 🔄 Creating autostart service..."
@@ -414,7 +421,7 @@ fi
 echo ""
 echo "🎉 Installation Complete!"
 echo ""
-print_status "USB Scanner v2.1 successfully installed"
+print_status "USB Scanner v2.1.1 successfully installed"
 echo ""
 echo "🚀 Usage:"
 echo "  GUI mode:        python3 $SCRIPT_PATH"

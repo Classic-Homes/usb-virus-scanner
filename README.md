@@ -8,7 +8,7 @@ An advanced Python application for automatically scanning USB drives when connec
 
 - **Automatic Detection**: Monitors USB ports and automatically detects removable storage devices
 - **Real-time Scanning**: Uses ClamAV engine for thorough virus scanning
-- **Automatic Remediation**: Removes detected threats automatically
+- **Safe Quarantine**: Safely isolates detected threats for review and recovery
 - **Multiple File Systems**: Supports VFAT, NTFS, exFAT, EXT3, and EXT4
 
 ### Enhanced User Experience
@@ -129,6 +129,26 @@ python3 usb_scanner.py
 
 Double-click the "USB Virus Scanner" icon on your desktop.
 
+### Quarantine Management
+
+The scanner now maintains a quarantine system for safely isolating detected threats:
+
+```bash
+# List quarantined files
+./manage.sh quarantine list
+
+# Restore a file from quarantine (use with caution!)
+./manage.sh quarantine restore <filename>
+
+# Delete a specific quarantined file
+./manage.sh quarantine delete <filename>
+
+# Delete all quarantined files
+./manage.sh quarantine delete all
+```
+
+Quarantined files are stored at `~/.local/share/usb-scanner/quarantine` with metadata about their origin.
+
 ### Service Mode
 
 If installed as a service:
@@ -179,10 +199,13 @@ The scanner generates detailed reports in JSON format containing:
   },
   "mount_point": "/media/user/MYDRIVE",
   "scan_duration": "0:02:15",
-  "total_files_scanned": 1542,
-  "threats_found": 0,
-  "infected_files": [],
-  "exit_code": 0
+  "threats_found": 2,
+  "infected_files": [
+    "/media/user/MYDRIVE/suspicious_file.exe: Malware.Win32.Trojan.12345 FOUND"
+  ],
+  "quarantine_location": "/home/user/.local/share/usb-scanner/quarantine",
+  "action_taken": "quarantined",
+  "exit_code": 1
 }
 ```
 
@@ -335,6 +358,6 @@ For issues and questions:
 
 ---
 
-**Version**: 2.0.0  
-**Last Updated**: June 2025  
+**Version**: 2.1.1  
+**Last Updated**: June 9, 2025  
 **Tested On**: Ubuntu 24.04 LTS
